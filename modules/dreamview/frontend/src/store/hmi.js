@@ -6,6 +6,8 @@ import WS from 'store/websocket';
 import UTTERANCE from 'store/utterance';
 import RENDERER from 'renderer';
 
+import _ from 'lodash';
+
 const TELEOP_MODE = Object.freeze({
   CAR: 'Car Teleop',
   CONSOLE: 'Console Teleop',
@@ -58,11 +60,33 @@ export default class HMI {
 
     utmZoneId = 10;
 
+    //@observable translationChanged=false;//默认没有changed
+
     @observable isCalibrationMode = false;
+
+    @observable isSensorCalibrationMode = false;
 
     @observable dataCollectionUpdateStatus = observable.map();
 
     @observable dataCollectionProgress = observable.map();
+
+    @observable preProcessProgress = 0;
+
+    @observable logString = '';
+
+    @observable endPreProcess=false;
+
+    @observable canStartPreProcess = true;//随时可以start
+
+    @observable updateConfiguration = false;
+    //@observable updateLidarConfiguration = this.inLidarIMUSensorCalibrationMode;
+    //@observable updateCameraLidarConfiguration=this.inCameraLidarSensorCalibrationMode;
+
+    @observable lidars = observable.map();
+
+    @observable cameras = observable.map();
+
+    @observable mainSensor = 'none';
 
     @action toggleCoDriverFlag() {
       this.isCoDriver = !this.isCoDriver;
@@ -86,10 +110,24 @@ export default class HMI {
       }
       if (newStatus.currentMode) {
         this.isCalibrationMode = (newStatus.currentMode.toLowerCase().includes('calibration'));
+        this.isSensorCalibrationMode = (newStatus.currentMode.toLowerCase().includes('sensor calibration'));
         if (this.currentMode !== newStatus.currentMode) {
           this.resetDataCollectionProgress();
+          this.resetPreProcessProgress();
+          this.currentMode = newStatus.currentMode;
+          if (this.isSensorCalibrationMode) {
+            this.updateConfiguration = true;
+            console.log(this.updateConfiguration);
+            //this.updateLidarConfiguration = this.inLidarIMUSensorCalibrationMode;
+            //this.updateCameraLidarConfiguration = this.inCameraLidarSensorCalibrationMode;
+            //this.translationChanged = false;
+            //this.preConditionModule = 'Recorder';
+            //这个Record这么写不优美 待细化
+          } else {
+            //this.monitoredAllSuccess = false;
+            // this.preConditionModule = 'none';
+          }
         }
-        this.currentMode = newStatus.currentMode;
       }
 
       if (newStatus.maps) {
@@ -105,6 +143,13 @@ export default class HMI {
       if (newStatus.currentVehicle) {
         if (this.isCalibrationMode && this.currentVehicle !== newStatus.currentVehicle) {
           this.resetDataCollectionProgress();
+        }
+        if (this.isSensorCalibrationMode && this.currentVehicle !== newStatus.currentVehicle) {
+          //this.updateLidarConfiguration = true;
+          //this.updateCameraLidarConfiguration = true;
+          this.updateConfiguration = true;
+          //this.translationChanged = false;
+          this.resetPreProcessProgress();
         }
         this.currentVehicle = newStatus.currentVehicle;
       }
@@ -129,6 +174,10 @@ export default class HMI {
         for (const key in newStatus.monitoredComponents) {
           this.componentStatus.set(key, newStatus.monitoredComponents[key]);
         }
+        if (this.startMonitorRecorderProcess && ! this.allMonitoredComponentSuccess) {
+          //正在检测且检测出非success 不报错误信息  直接关
+          this.toggleModule(this.preConditionModule);
+        }
       }
 
       if (typeof newStatus.passengerMsg === 'string') {
@@ -147,6 +196,10 @@ export default class HMI {
         this.vehicleParam.height / this.defaultVehicleSize.height);
     }
 
+    // @action toggleTranslationChange() {
+    //   this.translationChanged = true;
+    // }
+
     @action toggleModule(id) {
       this.moduleStatus.set(id, !this.moduleStatus.get(id));
       const command = this.moduleStatus.get(id) ? 'START_MODULE' : 'STOP_MODULE';
@@ -155,6 +208,14 @@ export default class HMI {
 
     @computed get inNavigationMode() {
       return this.currentMode === 'Navigation';
+    }
+
+    // @computed get inLidarIMUSensorCalibrationMode() {
+    //   return this.currentMode === 'Lidar-IMU Sensor Calibration';
+    // }
+
+    @computed get inCameraLidarSensorCalibrationMode() {
+      return this.currentMode === 'Camera-Lidar Sensor Calibration';
     }
 
     @computed get inCarTeleopMode() {
@@ -173,9 +234,31 @@ export default class HMI {
       return this.inNavigationMode || this.inTeleopMode;
     }
 
+    @computed get allMonitoredComponentSuccess() {
+      return this.isSensorCalibrationMode && _.every(this.componentStatus, ['status', 'SUCCESS']);
+    }
+
+    @computed get preConditionModule() {
+      return (this.isSensorCalibrationMode) ? 'Recorder' : 'none';
+    }
+
+    @computed get startMonitorRecorderProcess() {
+      return this.isSensorCalibrationMode && this.moduleStatus.get('Recorder');
+    }
+
     @action resetDataCollectionProgress() {
       this.dataCollectionUpdateStatus.clear();
       this.dataCollectionProgress.clear();
+    }
+
+    @action resetPreProcessProgress() {
+      // clear configuration process logString 监控相关 待优化
+      this.lidars.clear();
+      this.cameras.clear();
+      this.preProcessProgress = 0;
+      this.logString = '';
+      this.canStartPreProcess = true;
+      this.endPreProcess = false;
     }
 
     @action updateDataCollectionProgress(data) {
@@ -194,6 +277,71 @@ export default class HMI {
         });
       });
     }
+
+  @action updatePreprocessProgress(data) {
+      if (this.updateConfiguration) {
+        if (data.lidarConfig) {
+          data.lidarConfig.map(lidar => {
+            this.lidars.set(lidar.sensorName, lidar.translation);
+          });
+        }
+        if (data.cameraConfig) {
+          data.cameraConfig.map(camera => {
+            this.cameras.set(camera.cameraName, camera.translation);
+          });
+        }
+        //数据Ok Main sensor名字唯一
+        this.mainSensor = data.mainSensor;
+        this.updateConfiguration = false;
+      }
+      if (data.progress) {
+        //有进度更新进度 有logString 更新logString 状态进行捕获 如果是success 或者failed
+        this.preProcessProgress = _.get(data, 'progress.percentage');
+        this.logString = _.get(data, 'progress.logString');
+        //这个地方去读状态只要发现是SUCCESS 或者FATAL 则endPreProcess置为true 该end了
+        this.endPreProcess = ['SUCCESS', 'FATAL'].includes(_.get(data, 'progress.status'));
+        if (!this.canStartPreProcess && this.endPreProcess) {
+          //已经进入这个过程 需要监管是否可以end
+          this.canStartPreProcess = true;
+        }
+      }
+    }
+
+  //   @action updateLidarProgress(data) {
+  //   if (this.updateLidarConfiguration) {
+  //     data.lidarConfig.map(lidar => {
+  //       this.lidars.set(lidar.sensorName, lidar.translation);
+  //     });
+  //     this.mainSensor = data.mainSensor;
+  //     this.updateLidarConfiguration = false;
+  //     //this.translationChanged = false;
+  //   }
+  //   if (data.progress) {
+  //     this.preProcessProgress = _.get(data, 'progress.percentage');
+  //   }
+  // }
+
+  //   @action updateCameraLidarProgress(data) {
+  //     if (this.updateCameraLidarConfiguration) {
+  //       data.lidarConfig.map(lidar => {
+  //         this.lidars.set(lidar.sensorName, lidar.translation);
+  //       });
+  //       data.cameraConfig.map(camera => {
+  //         this.cameras.set(camera.cameraName, camera.translation);
+  //       });
+  //       this.mainSensor = data.mainSensor;
+  //       this.updateCameraLidarConfiguration = false;
+  //       //this.translationChanged = false;
+  //     }
+  //     if (data.progress) {
+  //       this.preProcessProgress = _.get(data, 'progress.percentage');
+  //     }
+  //   }
+
+    @action changeTranslation(name, index, val, isLidar) {
+    isLidar ? _.set(this.lidars.get(name), index, val)
+      : _.set(this.cameras.get(name), index, val);
+  }
 
     rotate2DPoint({ x, y }, rotationInRad) {
       return {

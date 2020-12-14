@@ -253,6 +253,8 @@ options:
     default: false
   showCycleNumberInput:
     default: false
+  showFuelClient:
+    default: false
   
 
 routingEditor:

@@ -10,6 +10,7 @@ export default class ModuleController extends React.Component {
   render() {
     const {
       modes, currentMode, moduleStatus, componentStatus,
+      allMonitoredComponentSuccess, isSensorCalibrationMode, preConditionModule,
     } = this.props.store.hmi;
 
     const moduleEntries = Array.from(moduleStatus.keys()).sort().map((key) => (
@@ -17,7 +18,8 @@ export default class ModuleController extends React.Component {
                 key={key}
                 id={key}
                 title={key}
-                disabled={false}
+                disabled={isSensorCalibrationMode && (key === preConditionModule)
+                  ? !allMonitoredComponentSuccess : false}
                 isChecked={moduleStatus.get(key)}
                 onClick={() => {
                   this.props.store.hmi.toggleModule(key);
