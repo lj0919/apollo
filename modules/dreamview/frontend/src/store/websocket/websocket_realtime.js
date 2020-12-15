@@ -55,9 +55,9 @@ export default class RealtimeWebSocketEndpoint {
           this.checkMessage(message);
 
           const isNewMode = (this.currentMode
-            && this.currentMode !== STORE.hmi.currentMode);
+                                       && this.currentMode !== STORE.hmi.currentMode);
           const isNavigationModeInvolved = (this.currentMode === 'Navigation'
-            || STORE.hmi.currentMode === 'Navigation');
+                                                    || STORE.hmi.currentMode === 'Navigation');
           this.currentMode = STORE.hmi.currentMode;
           if (STORE.hmi.shouldDisplayNavigationMap) {
             if (MAP_NAVIGATOR.isInitialized()) {
@@ -137,7 +137,7 @@ export default class RealtimeWebSocketEndpoint {
       const lossDuration = now - this.simWorldLastUpdateTimestamp;
       const alertDuration = now - STORE.monitor.lastUpdateTimestamp;
       if (this.simWorldLastUpdateTimestamp !== 0
-        && lossDuration > 10000 && alertDuration > 2000) {
+                && lossDuration > 10000 && alertDuration > 2000) {
         const message = 'Connection to the server has been lost.';
         STORE.monitor.insert('FATAL', message, now);
         if (UTTERANCE.getCurrentText() !== message || !UTTERANCE.isSpeaking()) {
@@ -241,7 +241,7 @@ export default class RealtimeWebSocketEndpoint {
     this.websocket.send(JSON.stringify(request));
   }
 
-  requestDefaultCycleRouting(start, waypoint, end, cycleNumber) {
+  requestDefaultCycleRouting(start,waypoint,end,cycleNumber) {
     const request = {
       type: 'SendDefaultCycleRoutingRequest',
       start,
@@ -382,23 +382,23 @@ export default class RealtimeWebSocketEndpoint {
     }));
   }
 
-  requestPreprocessProgress() {
-    this.websocket.send(JSON.stringify({
-      type: 'RequestPreprocessProgress',
-    }));
-  }
-
   setPointCloudWS(pointcloudws) {
     this.pointcloudWS = pointcloudws;
   }
 
-  saveDefaultRouting(routingName, points) {
+  saveDefaultRouting(routingName,points) {
     const request = {
       type: 'SaveDefaultRouting',
-      name: routingName,
-      point: points,
+      name:routingName,
+      point:points,
     };
     this.websocket.send(JSON.stringify(request));
+  }
+
+  requestPreprocessProgress() {
+    this.websocket.send(JSON.stringify({
+      type: 'RequestPreprocessProgress',
+    }));
   }
 
   startPreProcessData(data) {

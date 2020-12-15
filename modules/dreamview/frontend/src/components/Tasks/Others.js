@@ -73,20 +73,20 @@ export default class Others extends React.Component {
                             />
                         )}
                     {hmi.isSensorCalibrationMode
-                        && (
-                            <CheckboxItem
-                                id="showFuelClient"
-                                title="Fuel Client"
-                                isChecked={options.showFuelClient}
-                                disabled={disablePanel || !hmi.isSensorCalibrationMode}
-                                extraClasses="others-checkbox"
-                                onClick={() => {
-                                  this.props.store.handleOptionToggle(
-                                    'showFuelClient',
-                                  );
-                                }}
-                            />
-                        )}
+-                        && (
+-                            <CheckboxItem
+-                                id="showFuelClient"
+-                                title="Fuel Client"
+-                                isChecked={options.showFuelClient}
+-                                disabled={disablePanel || !hmi.isSensorCalibrationMode}
+-                                extraClasses="others-checkbox"
+-                                onClick={() => {
+-                                  this.props.store.handleOptionToggle(
+-                                    'showFuelClient',
+-                                  );
+-                                }}
+-                            />
+-                        )}
                     <CheckboxItem
                         id="toggleSimControl"
                         title="Sim Control"

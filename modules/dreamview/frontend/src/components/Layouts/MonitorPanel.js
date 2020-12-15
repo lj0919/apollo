@@ -38,16 +38,16 @@ export default class MonitorPanel extends React.Component {
       case MONITOR_MENU.FUEL_CLIENT:
         //一个组件夹带的参数多应该怎么做  这个地方必须优化
         return (
-                    <FuelClient
-                        lidars={hmi.lidars}
-                        cameras={hmi.cameras}
-                        mainSensor={hmi.mainSensor}
-                        mode={hmi.currentMode}
-                        inLidarIMUSensorCalibrationMode={hmi.inLidarIMUSensorCalibrationMode}
-                        inCameraLidarSensorCalibrationMode={hmi.inCameraLidarSensorCalibrationMode}
-                        preProcessProgress={hmi.preProcessProgress}
-                        toggleTranslationChange={hmi.toggleTranslationChange}
-                    />
+          <FuelClient
+            lidars={hmi.lidars}
+            cameras={hmi.cameras}
+            mainSensor={hmi.mainSensor}
+            mode={hmi.currentMode}
+            inLidarIMUSensorCalibrationMode={hmi.inLidarIMUSensorCalibrationMode}
+            inCameraLidarSensorCalibrationMode={hmi.inCameraLidarSensorCalibrationMode}
+            preProcessProgress={hmi.preProcessProgress}
+            toggleTranslationChange={hmi.toggleTranslationChange}
+          />
         );
       default:
         return null;
